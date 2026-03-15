@@ -176,14 +176,22 @@ Implementing ParamILS in C++ for automatically configuring OR-Tools constraint p
 ### Phase 8: FocusedILS Implementation
 **Goal**: The adaptive FocusedILS variant
 
+**Key insight**: BasicILS wastes time evaluating every configuration on N instances, even obviously bad ones. FocusedILS starts with few runs and only adds more when needed.
+
 #### Part 8.1: Domination Logic
 
 **Description**: Implement domination checking for FocusedILS.
 
+**The problem**: How do you compare two configs if they have different numbers of runs?
+
+**Solution - Domination**: θ₁ *dominates* θ₂ if:
+1. N(θ₁) ≥ N(θ₂)  — θ₁ has at least as many runs
+2. cost(θ₁, N(θ₂)) ≤ cost(θ₂)  — θ₁ is better when compared at θ₂'s level
+
 **Acceptance Criteria**:
 - [ ] Track N(θ) - number of runs per configuration
 - [ ] Implement domination check
-- [ ] Compare based on same number of runs (Same N)
+- [ ] Compare based on same number of runs (use first N runs for both)
 
 ---
 
@@ -191,22 +199,36 @@ Implementing ParamILS in C++ for automatically configuring OR-Tools constraint p
 
 **Description**: Implement the FocusedILS algorithm.
 
+**The `better()` function** is the core difference from BasicILS. It keeps adding runs until one clearly wins. This avoids.
+
+**Bonus Runs**: When a config improves the incumbent, it gets rewarded. The incumbent needs to be well-evaluated since everything is compared against it.
+
 **Acceptance Criteria**:
-- [ ] Adaptive comparison (add runs until domination)
+- [ ] Implement `better()` that adds runs until one dominates
 - [ ] Track B (configs since last improvement)
-- [ ] Maintain invariant: N(incumbent) >= N(θ)
-- [ ] Convergence to optimal (Probabilistic?)
+- [ ] Award B bonus runs when new incumbent found
+- [ ] Maintain invariant: N(incumbent) >= N(θ) for all θ
+- [ ] Use blocking: same instances/seeds for fair comparison
 
 ---
 
-#### Ticket 8.3: FocusedILS with Capping
+#### Part 8.3: FocusedILS with Capping
 
 **Description**: Integrate adaptive capping into FocusedILS.
 
+Capping in FocusedILS is trickier because configs have different N values.
+
+**Solution**: Maintain separate bounds per level:
+```
+bound[n] = best cost seen at exactly n runs
+```
+
+When evaluating θ at level n, cap if: current_cost > bound[n] × multiplier
+
 **Acceptance Criteria**:
-- [ ] Separate bounds per number of runs N
-- [ ] Update bounds as incumbent improves
-- [ ] Both TP and aggressive capping support
+- [ ] Maintain bound[n] for each evaluation level
+- [ ] Update bounds when incumbent improves
+- [ ] Both trajectory-preserving and aggressive capping support
 
 ---
 
